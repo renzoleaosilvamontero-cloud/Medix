@@ -16,10 +16,10 @@ Aplicación Java Swing de pacientes y citas, organizada por paquetes sencillos p
 
 1. Abre XAMPP y enciende **MySQL**.
 2. Abre phpMyAdmin en `http://localhost/phpmyadmin`.
-3. Importa `database/medix.sql` para crear `medix` y sus tablas. Hazlo en una base vacía; el script no borra información.
-4. La conexión usa por defecto `jdbc:mariadb://localhost:3306/medix`, usuario `root` y contraseña vacía, como en una instalación local típica de XAMPP. Si tu configuración es distinta, define `MEDIX_DB_URL`, `MEDIX_DB_USER` y `MEDIX_DB_PASSWORD`.
+3. Importa `database/medix.sql`. El script crea la base `MEDIX_DB` y sus tablas; no borra información.
+4. La conexión usa por defecto `jdbc:mariadb://localhost:3306/MEDIX_DB`, cuenta MySQL `root` y contraseña vacía, como en una instalación local típica de XAMPP. No necesitas crear otra cuenta MySQL. Si tu configuración es distinta, define `MEDIX_DB_URL`, `MEDIX_DB_USER` y `MEDIX_DB_PASSWORD`.
 
-La configuración de usuario root sin contraseña es solo para XAMPP local de desarrollo.
+La cuenta MySQL `root` se usa para el entorno local de desarrollo. Las cuentas y perfiles propios de la aplicación siguen gestionándose dentro de `MEDIX_DB`.
 
 ## Primera cuenta y ejecución
 
