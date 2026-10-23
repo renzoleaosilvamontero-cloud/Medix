@@ -82,11 +82,10 @@ CREATE TABLE IF NOT EXISTS appointments (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Datos ficticios de demostración; las inserciones de personas evitan duplicados.
-INSERT INTO patients (first_name,last_name,dni,birth_date,phone,email,address,sex)
+INSERT IGNORE INTO patients (first_name,last_name,dni,birth_date,phone,email,address,sex)
 VALUES
  ('Ana','Torres','90000001','1998-04-12','900111222','ana.torres@example.test','Lima','F'),
- ('Luis','Ramos','90000002','1987-09-30','900333444','luis.ramos@example.test','Lima','M')
-ON DUPLICATE KEY UPDATE first_name=VALUES(first_name), last_name=VALUES(last_name);
+ ('Luis','Ramos','90000002','1987-09-30','900333444','luis.ramos@example.test','Lima','M');
 
 INSERT INTO doctors (display_name,active)
 SELECT 'Dra. Valeria Paredes',1
