@@ -1,7 +1,7 @@
 -- Base de datos sencilla para importar con phpMyAdmin en XAMPP.
--- Importar en una base vacía llamada medix. No elimina datos.
-CREATE DATABASE IF NOT EXISTS medix CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE medix;
+-- Importar en una base vacía llamada MEDIX_DB. No elimina datos.
+CREATE DATABASE IF NOT EXISTS MEDIX_DB CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE MEDIX_DB;
 
 CREATE TABLE IF NOT EXISTS patients (
   id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
