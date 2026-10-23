@@ -1,4 +1,4 @@
-package com.mycompany.medix.security;
+package com.mycompany.medix.seguridad;
 import java.security.SecureRandom;
 import java.util.Base64;
 import org.mindrot.jbcrypt.BCrypt;

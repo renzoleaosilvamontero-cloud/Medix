@@ -1,4 +1,4 @@
-package com.mycompany.medix.security;
+package com.mycompany.medix.seguridad;
 import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.api.Test;
 class PasswordServiceTest {

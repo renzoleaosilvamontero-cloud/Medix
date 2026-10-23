@@ -1,11 +1,11 @@
-package com.mycompany.medix.ui;
+package com.mycompany.medix.vista;
 import java.awt.*;
 import java.time.*;
 import java.time.format.TextStyle;
 import java.util.Locale;
 import javax.swing.*;
-public final class CalendarPicker {
-  private CalendarPicker(){}
+public final class Calendario {
+  private Calendario(){}
   public static LocalDate choose(Component parent,LocalDate initial){
     final LocalDate[] selected={null}; final YearMonth[] month={YearMonth.from(initial)};
     JDialog dlg=new JDialog(SwingUtilities.getWindowAncestor(parent),"Seleccionar fecha",Dialog.ModalityType.APPLICATION_MODAL);

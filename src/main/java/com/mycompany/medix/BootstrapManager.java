@@ -1,7 +1,7 @@
 package com.mycompany.medix;
 
-import com.mycompany.medix.config.Database;
-import com.mycompany.medix.security.PasswordService;
+import com.mycompany.medix.conexion.ConexionBD;
+import com.mycompany.medix.seguridad.PasswordService;
 import java.io.Console;
 import java.sql.*;
 
@@ -13,12 +13,10 @@ public final class BootstrapManager {
     if(console==null) throw new IllegalStateException("Ejecuta este comando desde una terminal interactiva.");
     String username=console.readLine("Usuario inicial de Medix: ");
     char[] name=console.readPassword("Nombre del gerente: ");
-    char[] password=console.readPassword("Contraseña inicial (12 caracteres mínimo): ");
-    char[] confirm=console.readPassword("Confirmar contraseña: ");
-    if(!java.util.Arrays.equals(password,confirm))throw new IllegalArgumentException("Las contraseñas no coinciden.");
+    String password=PasswordService.temporaryPassword();
     String displayName=new String(name);
-    String hash=PasswordService.hash(password);
-    try(Connection c=Database.connect()){
+    String hash=PasswordService.hash(password.toCharArray());
+    try(Connection c=ConexionBD.conectar()){
       c.setAutoCommit(false);
       try(Statement check=c.createStatement();ResultSet r=check.executeQuery("SELECT COUNT(*) FROM app_users")){
         r.next();if(r.getLong(1)>0)throw new SQLException("Ya existen cuentas; el alta inicial está deshabilitada.");
@@ -32,7 +30,7 @@ public final class BootstrapManager {
           }
         }
       }
-      c.commit();console.printf("Cuenta gerente creada. Inicia sesión y cambia la contraseña si se solicita.%n");
-    } finally { java.util.Arrays.fill(password,'\0');java.util.Arrays.fill(confirm,'\0');java.util.Arrays.fill(name,'\0'); }
+      c.commit();console.printf("Cuenta creada. Usuario: %s%nContraseña temporal (se muestra una vez): %s%nCámbiala al iniciar sesión.%n",username,password);
+    } finally { java.util.Arrays.fill(name,'\0'); }
   }
 }

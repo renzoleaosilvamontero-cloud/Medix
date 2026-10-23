@@ -1,45 +1,45 @@
-package com.mycompany.medix.repository;
+package com.mycompany.medix.dao;
 
-import com.mycompany.medix.config.Database;
-import com.mycompany.medix.domain.*;
-import com.mycompany.medix.security.PasswordService;
+import com.mycompany.medix.conexion.ConexionBD;
+import com.mycompany.medix.modelo.*;
+import com.mycompany.medix.seguridad.PasswordService;
 import java.sql.*;
 import java.time.*;
 import java.util.*;
 
-public class MedixRepository {
-  public Optional<Session> authenticate(String username, char[] password) throws SQLException {
+public class MedixDAO {
+  public Optional<Usuario> authenticate(String username, char[] password) throws SQLException {
     String sql = "SELECT id,username,password_hash,role,patient_id,doctor_id,must_change_password FROM app_users WHERE username=? AND active=1";
-    try (Connection c=Database.connect(); PreparedStatement p=c.prepareStatement(sql)) {
+    try (Connection c=ConexionBD.conectar(); PreparedStatement p=c.prepareStatement(sql)) {
       p.setString(1, username.trim());
       try (ResultSet r=p.executeQuery()) {
         if (!r.next() || !PasswordService.verify(password,r.getString("password_hash"))) return Optional.empty();
         long patient=r.getLong("patient_id"); Long patientId=r.wasNull()?null:patient;
         long doctor=r.getLong("doctor_id"); Long doctorId=r.wasNull()?null:doctor;
-        return Optional.of(new Session(r.getLong("id"),r.getString("username"),Role.valueOf(r.getString("role")),patientId,doctorId,r.getBoolean("must_change_password")));
+        return Optional.of(new Usuario(r.getLong("id"),r.getString("username"),Rol.valueOf(r.getString("role")),patientId,doctorId,r.getBoolean("must_change_password")));
       }
     }
   }
-  public void changePassword(Session session, char[] oldPassword, char[] newPassword) throws SQLException {
-    try (Connection c=Database.connect(); PreparedStatement q=c.prepareStatement("SELECT password_hash FROM app_users WHERE id=? AND active=1")) {
-      q.setLong(1,session.userId());
+  public void changePassword(Usuario session, char[] oldPassword, char[] newPassword) throws SQLException {
+    try (Connection c=ConexionBD.conectar(); PreparedStatement q=c.prepareStatement("SELECT password_hash FROM app_users WHERE id=? AND active=1")) {
+      q.setLong(1,session.getUserId());
       try(ResultSet r=q.executeQuery()) {
         if(!r.next() || !PasswordService.verify(oldPassword,r.getString(1))) throw new SecurityException("Credenciales inválidas.");
       }
     }
-    try(Connection c=Database.connect(); PreparedStatement p=c.prepareStatement("UPDATE app_users SET password_hash=?,must_change_password=0 WHERE id=?")) {
-      p.setString(1,PasswordService.hash(newPassword)); p.setLong(2,session.userId()); p.executeUpdate();
+    try(Connection c=ConexionBD.conectar(); PreparedStatement p=c.prepareStatement("UPDATE app_users SET password_hash=?,must_change_password=0 WHERE id=?")) {
+      p.setString(1,PasswordService.hash(newPassword)); p.setLong(2,session.getUserId()); p.executeUpdate();
     }
   }
-  public String createInternalAccount(Session actor,String username,String displayName,Role role) throws SQLException {
-    require(actor,Role.MANAGER);
-    if(role!=Role.CUSTOMER_SERVICE && role!=Role.DOCTOR && role!=Role.MANAGER)throw new IllegalArgumentException("Perfil interno inválido.");
+  public String createInternalAccount(Usuario actor,String username,String displayName,Rol role) throws SQLException {
+    require(actor,Rol.MANAGER);
+    if(role!=Rol.CUSTOMER_SERVICE && role!=Rol.DOCTOR && role!=Rol.MANAGER)throw new IllegalArgumentException("Perfil interno inválido.");
     String temporary=PasswordService.temporaryPassword();
-    try(Connection c=Database.connect()){
+    try(Connection c=ConexionBD.conectar()){
       c.setAutoCommit(false);
       try{
-        String linkColumn=role==Role.DOCTOR?"doctor_id":"worker_id";
-        String linkedTable=role==Role.DOCTOR?"doctors":"workers";
+        String linkColumn=role==Rol.DOCTOR?"doctor_id":"worker_id";
+        String linkedTable=role==Rol.DOCTOR?"doctors":"workers";
         long linkedId;
         try(PreparedStatement p=c.prepareStatement("INSERT INTO "+linkedTable+"(display_name) VALUES(?)",Statement.RETURN_GENERATED_KEYS)){
           p.setString(1,displayName.trim());p.executeUpdate();
@@ -53,10 +53,10 @@ public class MedixRepository {
       finally{c.setAutoCommit(true);}
     }
   }
-  public String createPatientAccount(Session actor,String username,String firstName,String lastName,String dni) throws SQLException {
-    require(actor,Role.MANAGER);
+  public String createPacienteAccount(Usuario actor,String username,String firstName,String lastName,String dni) throws SQLException {
+    require(actor,Rol.MANAGER);
     String temporary=PasswordService.temporaryPassword();
-    try(Connection c=Database.connect()){
+    try(Connection c=ConexionBD.conectar()){
       c.setAutoCommit(false);
       try{
         long patientId;
@@ -72,48 +72,48 @@ public class MedixRepository {
       finally{c.setAutoCommit(true);}
     }
   }
-  public List<Patient> patients(Session s) throws SQLException {
-    require(s,Role.CUSTOMER_SERVICE,Role.DOCTOR,Role.MANAGER,Role.PATIENT);
+  public List<Paciente> patients(Usuario s) throws SQLException {
+    require(s,Rol.CUSTOMER_SERVICE,Rol.DOCTOR,Rol.MANAGER,Rol.PATIENT);
     String sql="SELECT id,first_name,last_name,dni,phone,email,address FROM patients WHERE (? IS NULL OR id=?) ORDER BY last_name,first_name";
-    try(Connection c=Database.connect(); PreparedStatement p=c.prepareStatement(sql)) {
-      if(s.role()==Role.PATIENT){p.setLong(1,s.patientId());p.setLong(2,s.patientId());} else {p.setNull(1,Types.BIGINT);p.setNull(2,Types.BIGINT);}
-      try(ResultSet r=p.executeQuery()){List<Patient> out=new ArrayList<>();while(r.next())out.add(new Patient(r.getLong(1),r.getString(2),r.getString(3),r.getString(4),r.getString(5),r.getString(6),r.getString(7)));return out;}
+    try(Connection c=ConexionBD.conectar(); PreparedStatement p=c.prepareStatement(sql)) {
+      if(s.getRole()==Rol.PATIENT){p.setLong(1,s.getPatientId());p.setLong(2,s.getPatientId());} else {p.setNull(1,Types.BIGINT);p.setNull(2,Types.BIGINT);}
+      try(ResultSet r=p.executeQuery()){List<Paciente> out=new ArrayList<>();while(r.next())out.add(new Paciente(r.getLong(1),r.getString(2),r.getString(3),r.getString(4),r.getString(5),r.getString(6),r.getString(7)));return out;}
     }
   }
-  public void updatePatient(Session s, Patient p) throws SQLException {
-    require(s,Role.CUSTOMER_SERVICE,Role.PATIENT,Role.MANAGER);
-    if(s.role()==Role.PATIENT && !Objects.equals(s.patientId(),p.id())) throw new SecurityException("Solo puedes modificar tu perfil.");
-    String sql=s.role()==Role.CUSTOMER_SERVICE
+  public void updatePaciente(Usuario s, Paciente p) throws SQLException {
+    require(s,Rol.CUSTOMER_SERVICE,Rol.PATIENT,Rol.MANAGER);
+    if(s.getRole()==Rol.PATIENT && !Objects.equals(s.getPatientId(),p.getId())) throw new SecurityException("Solo puedes modificar tu perfil.");
+    String sql=s.getRole()==Rol.CUSTOMER_SERVICE
       ? "UPDATE patients SET phone=?,email=?,address=? WHERE id=?"
       : "UPDATE patients SET first_name=?,last_name=?,dni=?,phone=?,email=?,address=? WHERE id=?";
-    try(Connection c=Database.connect();PreparedStatement q=c.prepareStatement(sql)){
+    try(Connection c=ConexionBD.conectar();PreparedStatement q=c.prepareStatement(sql)){
       int i=1;
-      if(s.role()!=Role.CUSTOMER_SERVICE){q.setString(i++,p.firstName());q.setString(i++,p.lastName());q.setString(i++,p.dni());}
-      q.setString(i++,p.phone());q.setString(i++,p.email());q.setString(i++,p.address());q.setLong(i,p.id());
+      if(s.getRole()!=Rol.CUSTOMER_SERVICE){q.setString(i++,p.getFirstName());q.setString(i++,p.getLastName());q.setString(i++,p.getDni());}
+      q.setString(i++,p.getPhone());q.setString(i++,p.getEmail());q.setString(i++,p.getAddress());q.setLong(i,p.getId());
       if(q.executeUpdate()!=1)throw new SQLException("Paciente no encontrado.");
     }
   }
-  public List<AppointmentInfo> appointments(Session s) throws SQLException {
-    require(s,Role.PATIENT,Role.DOCTOR,Role.CUSTOMER_SERVICE,Role.MANAGER);
-    String filter=s.role()==Role.PATIENT?" WHERE a.patient_id=?":s.role()==Role.DOCTOR?" WHERE a.doctor_id=?":"";
+  public List<Cita> appointments(Usuario s) throws SQLException {
+    require(s,Rol.PATIENT,Rol.DOCTOR,Rol.CUSTOMER_SERVICE,Rol.MANAGER);
+    String filter=s.getRole()==Rol.PATIENT?" WHERE a.patient_id=?":s.getRole()==Rol.DOCTOR?" WHERE a.doctor_id=?":"";
     String sql="SELECT a.id,p.first_name,p.last_name,d.display_name,a.starts_at,a.duration_minutes,a.status FROM appointments a JOIN patients p ON p.id=a.patient_id JOIN doctors d ON d.id=a.doctor_id"+filter+" ORDER BY a.starts_at DESC";
-    try(Connection c=Database.connect();PreparedStatement q=c.prepareStatement(sql)){
-      if(s.role()==Role.PATIENT)q.setLong(1,s.patientId());else if(s.role()==Role.DOCTOR)q.setLong(1,s.doctorId());
-      try(ResultSet rs=q.executeQuery()){List<AppointmentInfo> out=new ArrayList<>();while(rs.next())out.add(new AppointmentInfo(rs.getLong(1),rs.getString(2)+" "+rs.getString(3),rs.getString(4),rs.getTimestamp(5).toLocalDateTime(),rs.getInt(6),rs.getString(7)));return out;}
+    try(Connection c=ConexionBD.conectar();PreparedStatement q=c.prepareStatement(sql)){
+      if(s.getRole()==Rol.PATIENT)q.setLong(1,s.getPatientId());else if(s.getRole()==Rol.DOCTOR)q.setLong(1,s.getDoctorId());
+      try(ResultSet rs=q.executeQuery()){List<Cita> out=new ArrayList<>();while(rs.next())out.add(new Cita(rs.getLong(1),rs.getString(2)+" "+rs.getString(3),rs.getString(4),rs.getTimestamp(5).toLocalDateTime(),rs.getInt(6),rs.getString(7)));return out;}
     }
   }
-  public List<Doctor> availableDoctors(Session s, LocalDate date) throws SQLException {
-    require(s,Role.PATIENT,Role.CUSTOMER_SERVICE,Role.MANAGER);
-    List<Doctor> result=new ArrayList<>();
+  public List<Medico> availableMedicos(Usuario s, LocalDate date) throws SQLException {
+    require(s,Rol.PATIENT,Rol.CUSTOMER_SERVICE,Rol.MANAGER);
+    List<Medico> result=new ArrayList<>();
     String sql="SELECT d.id,d.display_name FROM doctors d WHERE d.active=1 ORDER BY d.display_name";
-    try(Connection c=Database.connect();PreparedStatement p=c.prepareStatement(sql);ResultSet r=p.executeQuery()){
-      while(r.next()){Doctor d=new Doctor(r.getLong(1),r.getString(2));if(!slots(c,d.id(),date).isEmpty())result.add(d);}
+    try(Connection c=ConexionBD.conectar();PreparedStatement p=c.prepareStatement(sql);ResultSet r=p.executeQuery()){
+      while(r.next()){Medico d=new Medico(r.getLong(1),r.getString(2));if(!slots(c,d.getId(),date).isEmpty())result.add(d);}
     }
     return result;
   }
-  public List<LocalTime> availableSlots(Session s,long doctorId,LocalDate date) throws SQLException {
-    require(s,Role.PATIENT,Role.CUSTOMER_SERVICE,Role.MANAGER);
-    try(Connection c=Database.connect()){return slots(c,doctorId,date);}
+  public List<LocalTime> availableSlots(Usuario s,long doctorId,LocalDate date) throws SQLException {
+    require(s,Rol.PATIENT,Rol.CUSTOMER_SERVICE,Rol.MANAGER);
+    try(Connection c=ConexionBD.conectar()){return slots(c,doctorId,date);}
   }
   private List<LocalTime> slots(Connection c,long doctorId,LocalDate date) throws SQLException {
     if(date.isBefore(LocalDate.now()))return List.of();
@@ -142,17 +142,17 @@ public class MedixRepository {
       p.setLong(1,doctor);p.setTimestamp(2,Timestamp.valueOf(b));p.setTimestamp(3,Timestamp.valueOf(a));try(ResultSet r=p.executeQuery()){return r.next();}
     }
   }
-  public void book(Session s,long patientId,long doctorId,LocalDateTime start,int duration) throws SQLException {
-    require(s,Role.PATIENT,Role.CUSTOMER_SERVICE,Role.MANAGER);
-    if(s.role()==Role.PATIENT && !Objects.equals(s.patientId(),patientId))throw new SecurityException("Solo puedes reservar para tu cuenta.");
+  public void book(Usuario s,long patientId,long doctorId,LocalDateTime start,int duration) throws SQLException {
+    require(s,Rol.PATIENT,Rol.CUSTOMER_SERVICE,Rol.MANAGER);
+    if(s.getRole()==Rol.PATIENT && !Objects.equals(s.getPatientId(),patientId))throw new SecurityException("Solo puedes reservar para tu cuenta.");
     if(start.isBefore(LocalDateTime.now()) || duration<5 || duration>480)throw new IllegalArgumentException("Fecha u duración inválida.");
-    try(Connection c=Database.connect()){
+    try(Connection c=ConexionBD.conectar()){
       c.setAutoCommit(false);
       try{
-        try(PreparedStatement lock=c.prepareStatement("SELECT id FROM doctors WHERE id=? AND active=1 FOR UPDATE")){lock.setLong(1,doctorId);try(ResultSet r=lock.executeQuery()){if(!r.next())throw new SQLException("Doctor no disponible.");}}
+        try(PreparedStatement lock=c.prepareStatement("SELECT id FROM doctors WHERE id=? AND active=1 FOR UPDATE")){lock.setLong(1,doctorId);try(ResultSet r=lock.executeQuery()){if(!r.next())throw new SQLException("Medico no disponible.");}}
         if(!isInsideHours(c,doctorId,start,duration) || unavailable(c,doctorId,start,start.plusMinutes(duration)) || overlaps(c,doctorId,start,start.plusMinutes(duration)))throw new SQLException("El horario ya no está disponible.");
         try(PreparedStatement p=c.prepareStatement("INSERT INTO appointments(patient_id,doctor_id,starts_at,duration_minutes,created_by) VALUES(?,?,?,?,?)")){
-          p.setLong(1,patientId);p.setLong(2,doctorId);p.setTimestamp(3,Timestamp.valueOf(start));p.setInt(4,duration);p.setLong(5,s.userId());p.executeUpdate();
+          p.setLong(1,patientId);p.setLong(2,doctorId);p.setTimestamp(3,Timestamp.valueOf(start));p.setInt(4,duration);p.setLong(5,s.getUserId());p.executeUpdate();
         }
         c.commit();
       }catch(Exception e){c.rollback();if(e instanceof SQLException se)throw se;if(e instanceof RuntimeException re)throw re;throw new SQLException(e);}
@@ -163,5 +163,5 @@ public class MedixRepository {
     String sql="SELECT 1 FROM doctor_working_hours WHERE doctor_id=? AND weekday=? AND active=1 AND starts_at<=? AND ends_at>=? AND MOD(TIME_TO_SEC(TIME(?))-TIME_TO_SEC(starts_at),slot_minutes*60)=0 LIMIT 1";
     try(PreparedStatement p=c.prepareStatement(sql)){p.setLong(1,doctor);p.setInt(2,start.getDayOfWeek().getValue());p.setTime(3,Time.valueOf(start.toLocalTime()));p.setTime(4,Time.valueOf(start.toLocalTime().plusMinutes(duration)));p.setTime(5,Time.valueOf(start.toLocalTime()));try(ResultSet r=p.executeQuery()){return r.next();}}
   }
-  private static void require(Session s,Role... roles){for(Role r:roles)if(s.role()==r)return;throw new SecurityException("Tu perfil no tiene permiso para esta operación.");}
+  private static void require(Usuario s,Rol... roles){for(Rol r:roles)if(s.getRole()==r)return;throw new SecurityException("Tu perfil no tiene permiso para esta operación.");}
 }
