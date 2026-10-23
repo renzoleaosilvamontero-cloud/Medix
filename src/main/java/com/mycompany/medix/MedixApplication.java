@@ -38,17 +38,30 @@ public class MedixApplication {
     private final JTable patientTable=new JTable(patientsModel);
     MainWindow(Session s){super("Medix — "+s.username()+" ("+s.role()+")");session=s;setDefaultCloseOperation(EXIT_ON_CLOSE);setSize(900,600);setLocationRelativeTo(null);
       JTabbedPane tabs=new JTabbedPane();if(s.role()!=Role.PATIENT)tabs.addTab("Pacientes",patientPanel());else tabs.addTab("Mi perfil",patientPanel());
-      if(s.role()!=Role.DOCTOR)tabs.addTab("Citas",appointmentPanel());
+      tabs.addTab(s.role()==Role.DOCTOR?"Mi agenda":"Citas",schedulePanel());
+      if(s.role()!=Role.DOCTOR)tabs.addTab("Reservar cita",appointmentPanel());
       JButton logout=new JButton("Cerrar sesión");logout.addActionListener(e->{dispose();login();});add(tabs,BorderLayout.CENTER);add(logout,BorderLayout.SOUTH);refreshPatients();
     }
     private JPanel patientPanel(){
       JPanel panel=new JPanel(new BorderLayout(8,8));panel.add(new JScrollPane(patientTable),BorderLayout.CENTER);
       JPanel actions=new JPanel();JButton refresh=new JButton("Actualizar");refresh.addActionListener(e->refreshPatients());actions.add(refresh);
       if(session.role()==Role.CUSTOMER_SERVICE||session.role()==Role.MANAGER||session.role()==Role.PATIENT){JButton edit=new JButton("Editar datos");edit.addActionListener(e->editPatient());actions.add(edit);}
-      if(session.role()==Role.MANAGER){JButton create=new JButton("Alta de paciente");create.addActionListener(e->createPatient());actions.add(create);}
+      if(session.role()==Role.MANAGER){
+        JButton create=new JButton("Alta de paciente");create.addActionListener(e->createPatient());actions.add(create);
+        JButton internal=new JButton("Alta de cuenta interna");internal.addActionListener(e->createInternalAccount());actions.add(internal);
+      }
       panel.add(actions,BorderLayout.SOUTH);return panel;
     }
     private void refreshPatients(){try{patientsModel.setRowCount(0);for(Patient x:repo.patients(session))patientsModel.addRow(new Object[]{x.id(),x.firstName(),x.lastName(),x.dni(),x.phone(),x.email(),x.address()});}catch(Exception e){error(e);}}
+    private void createInternalAccount(){
+      JTextField username=new JTextField(),name=new JTextField();
+      JComboBox<Role> role=new JComboBox<>(new Role[]{Role.CUSTOMER_SERVICE,Role.DOCTOR,Role.MANAGER});
+      JPanel form=new JPanel(new GridLayout(0,2,5,5));addField(form,"Usuario",username);addField(form,"Nombre completo",name);addField(form,"Perfil",role);
+      if(JOptionPane.showConfirmDialog(this,form,"Crear cuenta interna",JOptionPane.OK_CANCEL_OPTION)!=JOptionPane.OK_OPTION)return;
+      try{String temporary=repo.createInternalAccount(session,username.getText(),name.getText(),(Role)role.getSelectedItem());
+        JOptionPane.showMessageDialog(this,"Cuenta creada. Entrega esta contraseña temporal ahora; no volverá a mostrarse.\\nUsuario: "+username.getText()+"\\nContraseña temporal: "+temporary,"Credencial temporal",JOptionPane.INFORMATION_MESSAGE);
+      }catch(Exception ex){error(ex);}
+    }
     private void createPatient(){
       JTextField username=new JTextField(),first=new JTextField(),last=new JTextField(),dni=new JTextField();
       JPanel form=new JPanel(new GridLayout(0,2,5,5));addField(form,"Usuario",username);addField(form,"Nombre",first);addField(form,"Apellido",last);addField(form,"DNI",dni);
@@ -67,6 +80,13 @@ public class MedixApplication {
       try{repo.updatePatient(session,new Patient(id,f.getText(),l.getText(),d.getText(),phone.getText(),email.getText(),address.getText()));refreshPatients();}catch(Exception e){error(e);}
     }
     private String val(int row,int col){Object v=patientsModel.getValueAt(row,col);return v==null?"":v.toString();}
+    private JPanel schedulePanel(){
+      JPanel panel=new JPanel(new BorderLayout(8,8));
+      DefaultTableModel model=new DefaultTableModel(new Object[]{"ID","Paciente","Doctor","Inicio","Duración","Estado"},0){public boolean isCellEditable(int r,int c){return false;}};
+      JTable table=new JTable(model);panel.add(new JScrollPane(table),BorderLayout.CENTER);
+      JButton refresh=new JButton("Actualizar");refresh.addActionListener(e->{try{model.setRowCount(0);for(AppointmentInfo a:repo.appointments(session))model.addRow(new Object[]{a.id(),a.patientName(),a.doctorName(),a.startsAt(),a.durationMinutes(),a.status()});}catch(Exception ex){error(ex);}});
+      JPanel actions=new JPanel(new FlowLayout(FlowLayout.RIGHT));actions.add(refresh);panel.add(actions,BorderLayout.SOUTH);refresh.doClick();return panel;
+    }
     private JPanel appointmentPanel(){
       JPanel p=new JPanel(new GridLayout(0,2,8,8));p.setBorder(BorderFactory.createEmptyBorder(20,20,20,20));
       JTextField date=new JTextField(LocalDate.now().plusDays(1).toString());date.setEditable(false);JButton choose=new JButton("Elegir fecha…");
